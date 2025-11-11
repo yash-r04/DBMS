@@ -1,0 +1,4 @@
+#python -m venv venv
+#to activate it venv\Scripts\activate
+
+Django==5.2.7
