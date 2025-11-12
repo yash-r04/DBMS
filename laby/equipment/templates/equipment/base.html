@@ -1,3 +1,29 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Inventory Management{% endblock %}</title>
+  <link href="{% static 'css/output.css' %}" rel="stylesheet" />
+  
+</head>
+<body class="bg-gray-100 text-gray-900">
+
+  <!-- Navbar -->
+  <nav class="bg-blue-700 text-white px-6 py-3 flex justify-between items-center shadow">
+    <h1 class="text-xl font-semibold">🧪 Research Inventory</h1>
+    <div class="space-x-6">
+      <a href="{% url 'home' %}" class="hover:text-blue-200">Home</a>
+      <a href="{% url 'add_equipment' %}" class="hover:text-blue-200">Add Equipment</a>
+      <a href="{% url 'logout' %}" class="hover:text-blue-200">Logout</a>
+    </div>
+  </nav>
+
+  <main class="p-6">
+    {% block content %}{% endblock %}
+  </main>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
