@@ -1,10 +1,139 @@
-{% extends 'base.html' %}
+{% extends 'equipment/base.html' %}
+{% load static %}
+
 {% block content %}
-<h2>Admin Dashboard</h2>
-<ul>
-  <li><a href="/api/equipment/">View All Equipment</a></li>
-  <li><a href="/api/suppliers/">Manage Suppliers</a></li>
-  <li><a href="/api/usage/">View Usage Logs</a></li>
-  <li><a href="/admin/">Open Admin Panel</a></li>
-</ul>
+<div class="container-fluid mt-4">
+
+  <h2 class="mb-4 text-center">Admin Dashboard</h2>
+
+  <!-- ===== Stats Cards ===== -->
+  <div class="row text-center mb-4">
+    <div class="col-md-3">
+      <div class="card shadow-sm p-3">
+        <h5>Total Equipments</h5>
+        <p class="display-6">{{ equipment_count }}</p>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card shadow-sm p-3">
+        <h5>Suppliers</h5>
+        <p class="display-6">{{ supplier_count }}</p>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card shadow-sm p-3">
+        <h5>Active Borrowers</h5>
+        <p class="display-6">{{ borrowed_count }}</p>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card shadow-sm p-3">
+        <h5>Alerts</h5>
+        <p class="display-6 text-danger">{{ alert_count }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Action Buttons ===== -->
+  <div class="mb-4 text-center">
+    <a href="{% url 'add_equipment' %}" class="btn btn-success mx-1">Add Equipment</a>
+    <a href="{% url 'equipment_list' %}" class="btn btn-primary mx-1">View All Equipments</a>
+    <a href="{% url 'supplier_list' %}" class="btn btn-info mx-1">View Suppliers</a>
+    <a href="{% url 'add_supplier' %}" class="btn btn-warning mx-1">Add Supplier</a>
+  </div>
+
+  <!-- ===== Charts ===== -->
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <div class="card shadow-sm p-4">
+        <h5 class="text-center">Equipment Category Distribution</h5>
+        <canvas id="categoryChart"></canvas>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card shadow-sm p-4">
+        <h5 class="text-center">Borrowed vs Available</h5>
+        <canvas id="borrowedChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Equipment Table ===== -->
+  <div class="card shadow-sm p-4">
+    <h4 class="mb-3">All Equipments</h4>
+    <table class="table table-hover">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Category</th>
+          <th>Quantity</th>
+          <th>Location</th>
+          <th>Condition</th>
+          <th>Added On</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for eq in equipments %}
+        <tr {% if eq.quantity < 2 %} class="table-danger" {% endif %}>
+          <td>{{ eq.name }}</td>
+          <td>{{ eq.category }}</td>
+          <td>{{ eq.quantity }}</td>
+          <td>{{ eq.location }}</td>
+          <td>{{ eq.condition }}</td>
+          <td>{{ eq.added_on|date:"Y-m-d" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- ===== Chart.js Scripts ===== -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  // Category Distribution (Bar Chart)
+  const ctx1 = document.getElementById('categoryChart').getContext('2d');
+  new Chart(ctx1, {
+    type: 'bar',
+    data: {
+      labels: {{ categories|safe }},
+      datasets: [{
+        label: 'Number of Equipments',
+        data: {{ counts|safe }},
+        backgroundColor: 'rgba(75, 192, 192, 0.6)',
+        borderColor: 'rgba(75, 192, 192, 1)',
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+      },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+
+  // Borrowed vs Available (Pie Chart)
+  const borrowedCount = {{ borrowed_count }};
+  const totalEquipment = {{ equipment_count }};
+  const availableCount = totalEquipment - borrowedCount;
+
+  const ctx2 = document.getElementById('borrowedChart').getContext('2d');
+  new Chart(ctx2, {
+    type: 'pie',
+    data: {
+      labels: ['Borrowed', 'Available'],
+      datasets: [{
+        data: [borrowedCount, availableCount],
+        backgroundColor: ['rgba(255, 99, 132, 0.6)', 'rgba(54, 162, 235, 0.6)'],
+        borderColor: ['rgba(255, 99, 132, 1)', 'rgba(54, 162, 235, 1)'],
+        borderWidth: 1
+      }]
+    },
+    options: { responsive: true }
+  });
+</script>
+
 {% endblock %}

@@ -27,7 +27,7 @@ urlpatterns = [
 
 '''
 
-from django.contrib import admin
+'''from django.contrib import admin
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
 
@@ -36,5 +36,19 @@ urlpatterns = [
     path('logout/', auth_views.LogoutView.as_view(next_page='home'), name='logout'),
     path('admin/', admin.site.urls),
     path('', include('equipment.urls')),  # homepage now handled by equipment app
+]'''
+
+from django.contrib import admin
+from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('', include('equipment.urls')),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
 

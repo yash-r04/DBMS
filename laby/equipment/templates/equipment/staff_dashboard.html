@@ -1,8 +1,96 @@
-{% extends 'base.html' %}
+{% extends 'equipment/base.html' %}
+
 {% block content %}
-<h2>Staff Dashboard</h2>
-<ul>
-  <li><a href="/api/equipment/">View Equipment</a></li>
-  <li><a href="/api/usage/">Log Equipment Usage</a></li>
-</ul>
+<div class="container mt-4">
+  <h2 class="text-center mb-4">Staff Dashboard</h2>
+
+  <!-- Quick Stats -->
+  <div class="row text-center mb-4">
+    <div class="col-md-4">
+      <div class="card shadow-sm p-3">
+        <h5>Borrowed Equipments</h5>
+        <p class="display-6">{{ borrowed_count }}</p>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card shadow-sm p-3">
+        <h5>Total Equipments</h5>
+        <p class="display-6">{{ equipment_count }}</p>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card shadow-sm p-3">
+        <h5>Active Alerts</h5>
+        <p class="display-6 text-danger">{{ alert_count }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Borrowed Equipment List -->
+  <div class="card shadow-sm p-4 mb-4">
+    <h4 class="mb-3">Borrowed Equipment</h4>
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Equipment</th>
+          <th>Borrowed On</th>
+          <th>Returned On</th>
+          <th>Purpose</th>
+          <th>Quantity</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for record in borrowed_records %}
+        <tr>
+          <td>{{ record.user.username }}</td>
+          <td>{{ record.equipment.name }}</td>
+          <td>{{ record.borrowed_on }}</td>
+          <td>{{ record.returned_on|default:"—" }}</td>
+          <td>{{ record.purpose }}</td>
+          <td>{{ record.quantity_used }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6">No borrowed equipment</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pending Requests -->
+  <div class="card shadow-sm p-4">
+    <h4 class="mb-3">Pending Equipment Requests</h4>
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Equipment</th>
+          <th>Quantity</th>
+          <th>Purpose</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for req in requests %}
+        <tr>
+          <td>{{ req.user.username }}</td>
+          <td>{{ req.equipment.name }}</td>
+          <td>{{ req.quantity }}</td>
+          <td>{{ req.purpose }}</td>
+          <td>
+            <form method="post" style="display:inline;">
+              {% csrf_token %}
+              <input type="hidden" name="request_id" value="{{ req.id }}">
+              <button name="action" value="approve" class="btn btn-success btn-sm">Approve</button>
+              <button name="action" value="reject" class="btn btn-danger btn-sm">Reject</button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5">No pending requests</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
 {% endblock %}

@@ -1,0 +1,13 @@
+{% extends 'equipment/base.html' %}
+{% block title %}Equipment Details{% endblock %}
+{% block content %}
+<h2>{{ equipment.name }}</h2>
+<p><strong>Category:</strong> {{ equipment.category }}</p>
+<p><strong>Description:</strong> {{ equipment.description }}</p>
+<p><strong>Quantity:</strong> {{ equipment.quantity }}</p>
+{% if user.role == "Viewer" %}
+<a href="{% url 'request_equipment' %}" class="btn btn-primary">Request Equipment</a>
+{% endif %}
+
+<a href="{% url 'equipment_list' %}" class="btn btn-secondary">Back</a>
+{% endblock %}

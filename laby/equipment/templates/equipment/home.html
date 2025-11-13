@@ -1,24 +1,205 @@
+{% load static %}
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Lab Equipment</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab Equipment Management</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+<style>
+    body {
+        margin: 0;
+        font-family: 'Roboto', sans-serif;
+        background-color: #121212;
+        color: #f5f5f5;
+    }
+
+    header {
+        text-align: center;
+        padding: 50px 20px 30px 20px;
+        background: #06194dff;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.7);
+    }
+
+    header h1 {
+        font-size: 3em;
+        margin: 0 0 10px 0;
+    }
+
+    header p {
+        font-size: 1.2em;
+        color: #ccc;
+    }
+
+    .btn {
+        display: inline-block;
+        margin: 15px 10px;
+        padding: 12px 30px;
+        font-size: 1em;
+        font-weight: bold;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+
+    .btn-login {
+        background-color: #ff6b6b;
+        color: #fff;
+    }
+
+    .btn-login:hover { background-color: #ff4b4b; }
+
+    .btn-register {
+        background-color: #1dd1a1;
+        color: #fff;
+    }
+
+    .btn-register:hover { background-color: #10ac84; }
+
+    .section {
+        padding: 60px 20px;
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+
+    .section h2 {
+        font-size: 2em;
+        margin-bottom: 20px;
+        text-align: center;
+        color: #fff;
+    }
+
+    .section p {
+        font-size: 1.1em;
+        line-height: 1.6;
+        color: #ccc;
+        text-align: center;
+        max-width: 800px;
+        margin: 0 auto 40px auto;
+    }
+
+    /* Timeline / Map of events */
+    .timeline {
+        position: relative;
+        max-width: 800px;
+        margin: 50px auto;
+    }
+
+    .timeline::after {
+        content: '';
+        position: absolute;
+        width: 4px;
+        background-color: #888;
+        top: 0;
+        bottom: 0;
+        left: 50%;
+        margin-left: -2px;
+    }
+
+    .event {
+        padding: 20px 30px;
+        position: relative;
+        background-color: #d62a07ff;
+        border-radius: 8px;
+        width: 45%;
+        color: #fff;
+        margin-bottom: 50px;
+    }
+
+    .event-left {
+        left: 0;
+    }
+
+    .event-right {
+        left: 55%;
+    }
+
+    .event::after {
+        content: '';
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        background-color: #1dd1a1;
+        border-radius: 50%;
+        top: 20px;
+        z-index: 1;
+    }
+
+    .event-left::after {
+        right: -10px;
+    }
+
+    .event-right::after {
+        left: -10px;
+    }
+
+    footer {
+        text-align: center;
+        padding: 20px;
+        background-color: #050225ff;
+        color: #888;
+    }
+</style>
 </head>
 <body>
-    <h1>Welcome to Lab Equipment Management</h1>
 
-    <h2>Available Equipments</h2>
-    <ul>
-        {% for eq in equipments %}
-            <li>{{ eq.name }} ({{ eq.category }}) - Quantity: {{ eq.quantity }}</li>
-        {% empty %}
-            <li>No equipment available.</li>
-        {% endfor %}
-    </ul>
+<header>
+    <h1>Laby! - Lab Equipment Management! 🧪</h1>
+    <h2> Made by Yashaswini C Rao (U25UV23T029126) & Vasundhara Chakrapani(U25UV23T029120)<h2>
+    <p>Efficiently manage, borrow, and track lab equipment in one place.</p>
+    <a href="{% url 'register' %}" class="btn btn-register">Register</a>
+    <a href="{% url 'login' %}" class="btn btn-login">Login</a>
+</header>
 
+<section class="section">
+    <h2>How it Works</h2>
     <p>
-        <a href="{% url 'register' %}">Register</a> |
-        <a href="/admin/login/">Login</a> |
-        <a href="{% url 'equipment_list' %}">View All Equipments</a>
+        Our system is designed for labs to streamline equipment management.
+        <br>Admins can add equipment and suppliers. Staff can approve borrow requests.
+        Viewers can request equipment and track borrowed items.
     </p>
+</section>
+
+<section class="section">
+    <h2>Role Overview</h2>
+    <p>
+        <strong>Admin:</strong> Manage all equipment, suppliers, and analytics.<br>
+        <strong>Staff:</strong> Approve requests and track borrowed items.<br>
+        <strong>Viewer:</strong> Request equipment and check availability.
+    </p>
+</section>
+
+<section class="section">
+    <h2>Map of Events</h2>
+    <div class="timeline">
+        <div class="event event-left">
+            <h3>Step 1: Register/Login</h3>
+            <p>Sign up and log in to access the system according to your role.</p>
+        </div>
+        <div class="event event-right">
+            <h3>Step 2: Request Equipment</h3>
+            <p>Viewers submit a request for the equipment they need.</p>
+        </div>
+        <div class="event event-left">
+            <h3>Step 3: Approval</h3>
+            <p>Staff reviews requests and approves or rejects them based on availability.</p>
+        </div>
+        <div class="event event-right">
+            <h3>Step 4: Borrow/Return</h3>
+            <p>Once approved, the equipment can be borrowed and later returned, updating inventory.</p>
+        </div>
+        <div class="event event-left">
+            <h3>Step 5: Track & Alerts</h3>
+            <p>All roles can view usage, alerts, and equipment status in dashboards.</p>
+        </div>
+    </div>
+</section>
+
+<footer>
+    &copy; {{ now.year }} Lab Equipment Management System Made by Yashaswini C Rao and Vasundhara Chakrapani
+</footer>
+
 </body>
 </html>

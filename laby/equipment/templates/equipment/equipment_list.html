@@ -1,0 +1,30 @@
+{% extends 'equipment/base.html' %}
+{% block title %}All Equipment{% endblock %}
+{% block content %}
+<h2>Equipment List</h2>
+<a href="{% url 'add_equipment' %}" class="btn btn-success mb-3">Add Equipment</a>
+
+<table class="table table-bordered">
+  <thead>
+    <tr><th>Name</th><th>Category</th><th>Quantity</th><th>Actions</th></tr>
+  </thead>
+  <tbody>
+    {% for eq in equipments %}
+      <tr>
+        <td>{{ eq.name }}</td>
+        <td>{{ eq.category }}</td>
+        <td>{{ eq.quantity }}</td>
+        <td>
+          {% if user.role == "Viewer" %}
+<a href="{% url 'request_equipment' %}" class="btn btn-primary">Request Equipment</a>
+{% endif %}
+
+          <a href="{% url 'equipment_detail' eq.id %}" class="btn btn-info btn-sm">View</a>
+          <a href="{% url 'equipment_edit' eq.id %}" class="btn btn-warning btn-sm">Edit</a>
+          <a href="{% url 'equipment_delete' eq.id %}" class="btn btn-danger btn-sm">Delete</a>
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -46,11 +46,29 @@ class UsageRecord(models.Model):
     quantity_used = models.PositiveIntegerField()
 
 class Alert(models.Model):
-    ALERT_TYPES = [
-        ('low_stock', 'Low Stock'),
-        ('maintenance', 'Maintenance'),
-    ]
-    equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE, related_name='alerts')
+    equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE)
     message = models.TextField()
-    type = models.CharField(max_length=20, choices=ALERT_TYPES)
-    created_at = models.DateField(auto_now_add=True)
+    type = models.CharField(max_length=20)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)  # <- Add this
+
+    
+
+class EquipmentRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected')
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE)  # the viewer requesting
+    equipment = models.ForeignKey('Equipment', on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField()
+    purpose = models.TextField(blank=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    requested_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    
+    def __str__(self):
+        return f"{self.user.username} requested {self.quantity} {self.equipment.name}"
+
