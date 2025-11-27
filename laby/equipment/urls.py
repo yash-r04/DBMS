@@ -28,9 +28,15 @@ urlpatterns = [
 
 
     # Borrow / Return
-    path('borrow/<int:id>/', views.borrow_equipment, name='borrow_equipment'),
+    #path('borrow/<int:id>/', views.borrow_equipment, name='borrow_equipment'),
     path('return/<int:id>/', views.return_equipment, name='return_equipment'),
     # urls.py
     path('request-equipment/', views.request_equipment, name='request_equipment'),
+    # Admin user management
+    path('admin-dashboard/users/', views.admin_users, name='admin_users'),
+    path('admin-dashboard/staff/', views.admin_staff_list, name='admin_staff_list'),
+    path('admin-dashboard/approve-staff/<int:id>/', views.approve_staff, name='approve_staff'),
+    path('admin-dashboard/borrowers/', views.admin_borrowers, name='admin_borrowers'),
+
 
 ]

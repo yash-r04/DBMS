@@ -3,109 +3,54 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from django.contrib.auth import login, authenticate, logout
-from .models import Equipment, Supplier, UsageRecord, Alert, User
-from .forms import RegisterForm,EquipmentForm,SupplierForm
+from django.db.models import F, Count
+from django.db import models
+
+from .models import (
+    Equipment, Supplier, UsageRecord, Alert, User, EquipmentRequest
+)
+from .forms import (
+    RegisterForm, EquipmentForm, SupplierForm, EquipmentRequestForm
+)
 from .decorators import admin_required, staff_required, viewer_allowed
 
-from .forms import EquipmentRequestForm
-from .models import EquipmentRequest
 
-@login_required
-def request_equipment(request):
-    if request.method == "POST":
-        form = EquipmentRequestForm(request.POST)
-        if form.is_valid():
-            req = form.save(commit=False)
-            req.user = request.user
-            req.save()
-            messages.success(request, "Request submitted!")
-            return redirect('home')
-    else:
-        form = EquipmentRequestForm()
-    return render(request, 'equipment/request_equipment.html', {'form': form})
-
-
-
-@login_required
-@staff_required
-def manage_requests(request):
-    pending_requests = EquipmentRequest.objects.filter(status='pending')
-
-    if request.method == 'POST':
-        req_id = request.POST.get('request_id')
-        action = request.POST.get('action')
-        req = EquipmentRequest.objects.get(id=req_id)
-        
-        if action == 'approve':
-            eq = req.equipment
-            if req.quantity <= eq.quantity:
-                eq.quantity -= req.quantity
-                eq.save()
-
-                # Update request status
-                req.status = 'approved'
-                req.processed_at = timezone.now()
-                req.save()
-
-                # Automatically create a UsageRecord so it shows as borrowed
-                UsageRecord.objects.create(
-                    user=req.user,
-                    equipment=eq,
-                    borrowed_on=timezone.now(),
-                    quantity_used=req.quantity,
-                    purpose=req.purpose or "Requested via dashboard"
-                )
-
-            else:
-                messages.error(request, f"Not enough {eq.name} available.")
-
-        elif action == 'reject':
-            req.status = 'rejected'
-            req.processed_at = timezone.now()
-            req.save()
-        
-        return redirect('manage_requests')
-
-    return render(request, 'equipment/manage_requests.html', {'requests': pending_requests})
-
-# =======================
-# Authentication Views
-# =======================
+# ============================================================
+# HOME + AUTH
+# ============================================================
 
 def home(request):
     equipments = Equipment.objects.all()[:5]
     return render(request, 'equipment/home.html', {'equipments': equipments})
+
 
 def register_view(request):
     if request.method == 'POST':
         form = RegisterForm(request.POST)
         if form.is_valid():
             user = form.save()
-            login(request, user)  # Auto-login after registration
-            messages.success(request, f"Welcome {user.username}! You are now logged in.")
+            login(request, user)
 
-            # Redirect based on role
             if user.role == 'Admin':
                 return redirect('admin_dashboard')
             elif user.role == 'Staff':
                 return redirect('staff_dashboard')
             else:
                 return redirect('viewer_dashboard')
-        else:
-            # Show form errors
-            messages.error(request, "Please correct the errors below.")
-            print(form.errors)  # For debugging in console
+
+        messages.error(request, "Please correct errors below.")
     else:
         form = RegisterForm()
 
     return render(request, 'equipment/register.html', {'form': form})
 
+
 def login_view(request):
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')
-        user = authenticate(request, username=username, password=password)
 
+        user = authenticate(request, username=username, password=password)
         if user:
             login(request, user)
             if user.role == 'Admin':
@@ -114,42 +59,56 @@ def login_view(request):
                 return redirect('staff_dashboard')
             else:
                 return redirect('viewer_dashboard')
-        else:
-            messages.error(request, "Invalid username or password.")
-    return render(request, 'equipment/login.html')
 
+        messages.error(request, "Invalid credentials.")
+
+    return render(request, 'equipment/login.html')
 
 
 @login_required
 def dashboard(request):
-    """Redirect to respective dashboards based on role"""
-    role = request.user.role
-    if role == 'Admin':
+    if request.user.role == 'Admin':
         return redirect('admin_dashboard')
-    elif role == 'Staff':
+    elif request.user.role == 'Staff':
         return redirect('staff_dashboard')
+    return redirect('viewer_dashboard')
+
+
+# ============================================================
+# VIEWER: REQUEST EQUIPMENT (ONE FINAL VERSION)
+# ============================================================
+
+@login_required
+@viewer_allowed
+def request_equipment(request):
+    if request.method == "POST":
+        form = EquipmentRequestForm(request.POST)
+        if form.is_valid():
+            req = form.save(commit=False)
+            req.user = request.user
+            req.save()
+
+            messages.success(request, "Request submitted!")
+            return redirect('viewer_dashboard')
     else:
-        return redirect('viewer_dashboard')
+        form = EquipmentRequestForm()
+
+    return render(request, 'equipment/request_equipment.html', {'form': form})
 
 
-# =======================
-# Dashboards
-# =======================
-
-from django.db.models import Count
-from django.utils import timezone
+# ============================================================
+# ADMIN DASHBOARD
+# ============================================================
 
 @admin_required
 def admin_dashboard(request):
     equipments = Equipment.objects.all()
     suppliers = Supplier.objects.all()
     alerts = Alert.objects.all()
+
     borrowed_count = UsageRecord.objects.filter(returned_on__isnull=True).count()
 
-    # Analytics: category distribution
     category_data = Equipment.objects.values('category').annotate(count=Count('id'))
-    categories = [item['category'] for item in category_data]
-    counts = [item['count'] for item in category_data]
 
     context = {
         'equipments': equipments,
@@ -157,16 +116,21 @@ def admin_dashboard(request):
         'equipment_count': equipments.count(),
         'borrowed_count': borrowed_count,
         'alert_count': alerts.count(),
-        'categories': categories,
-        'counts': counts
+        'categories': [c['category'] for c in category_data],
+        'counts': [c['count'] for c in category_data],
     }
-
     return render(request, 'equipment/admin_dashboard.html', context)
+
+
+# ============================================================
+# SUPPLIERS (Admin only)
+# ============================================================
 
 @admin_required
 def supplier_list(request):
     suppliers = Supplier.objects.all()
     return render(request, 'equipment/supplier_list.html', {'suppliers': suppliers})
+
 
 @admin_required
 def add_supplier(request):
@@ -174,57 +138,113 @@ def add_supplier(request):
         form = SupplierForm(request.POST)
         if form.is_valid():
             form.save()
-            messages.success(request, "Supplier added successfully!")
+            messages.success(request, "Supplier added!")
             return redirect('supplier_list')
     else:
         form = SupplierForm()
     return render(request, 'equipment/add_supplier.html', {'form': form})
 
+
+# ============================================================
+# STAFF DASHBOARD (handles approval + borrowing display)
+# ============================================================
+
 @login_required
 @staff_required
 def staff_dashboard(request):
-    # Stats
-    equipment_count = Equipment.objects.count()
+
+    today = timezone.now().date()
+
     borrowed_records = UsageRecord.objects.filter(returned_on__isnull=True)
     borrowed_count = borrowed_records.count()
+
+    equipment_count = Equipment.objects.count()
     alert_count = Alert.objects.filter(is_active=True).count()
 
-    # Pending requests
-    pending_requests = EquipmentRequest.objects.filter(status='pending')
+    overdue_records = UsageRecord.objects.filter(
+        returned_on__isnull=True,
+        due_date__lt=today
+    ).annotate(
+        days_overdue=timezone.now().date() - F('due_date')
+    )
 
-    context = {
-        'equipment_count': equipment_count,
-        'borrowed_count': borrowed_count,
-        'alert_count': alert_count,
-        'borrowed_records': borrowed_records,
-        'requests': pending_requests,
-    }
+    # =====================================================
+    # HANDLE APPROVE / REJECT
+    # =====================================================
+    if request.method == "POST":
+        action = request.POST.get("action")
+        req_id = request.POST.get("request_id")
 
-    # Handle approve/reject POST
-    if request.method == 'POST':
-        req_id = request.POST.get('request_id')
-        action = request.POST.get('action')
-        req = EquipmentRequest.objects.get(id=req_id)
+        try:
+            req = EquipmentRequest.objects.get(id=req_id)
+        except EquipmentRequest.DoesNotExist:
+            messages.error(request, "Request not found.")
+            return redirect("staff_dashboard")
 
-        if action == 'approve':
-            eq = req.equipment
-            if req.quantity <= eq.quantity:
-                eq.quantity -= req.quantity
-                eq.save()
-                req.status = 'approved'
-                req.processed_at = timezone.now()
-                req.save()
-            else:
-                messages.error(request, f"Not enough {eq.name} available.")
-        elif action == 'reject':
-            req.status = 'rejected'
+        equipment = req.equipment
+
+        # ---------- APPROVE ----------
+        if action == "approve":
+            due_date = request.POST.get("due_date")
+
+            if not due_date:
+                messages.error(request, "Due date required.")
+                return redirect("staff_dashboard")
+
+            if req.quantity > equipment.quantity:
+                messages.error(request, "Not enough stock available.")
+                return redirect("staff_dashboard")
+
+            # Update quantity
+            equipment.quantity -= req.quantity
+            equipment.save()
+
+            # Create usage record
+            UsageRecord.objects.create(
+                user=req.user,
+                equipment=equipment,
+                quantity_used=req.quantity,
+                borrowed_on=today,
+                due_date=due_date,
+                purpose=req.purpose or "Requested through dashboard",
+                returned_on=None
+            )
+
+            req.status = "approved"
             req.processed_at = timezone.now()
             req.save()
-        
-        return redirect('staff_dashboard')
 
-    return render(request, 'equipment/staff_dashboard.html', context)
+            messages.success(request, f"Approved request for {equipment.name}")
 
+        # ---------- REJECT ----------
+        elif action == "reject":
+            req.status = "rejected"
+            req.processed_at = timezone.now()
+            req.save()
+            messages.info(request, "Request rejected.")
+
+        return redirect("staff_dashboard")
+
+    # =====================================================
+    # Pending (only pending)
+    # =====================================================
+    requests_list = EquipmentRequest.objects.filter(status='pending')
+
+    context = {
+        "borrowed_records": borrowed_records,
+        "borrowed_count": borrowed_count,
+        "equipment_count": equipment_count,
+        "alert_count": alert_count,
+        "overdue_records": overdue_records,
+        "requests": requests_list,
+        "today": today,
+    }
+    return render(request, "equipment/staff_dashboard.html", context)
+
+
+# ============================================================
+# VIEWER DASHBOARD
+# ============================================================
 
 @login_required
 @viewer_allowed
@@ -236,15 +256,12 @@ def viewer_dashboard(request):
         'form': form
     })
 
-
-
 def no_permission(request):
     return render(request, 'equipment/no_permission.html')
 
-
-# =======================
-# Equipment Management
-# =======================
+# ============================================================
+# EQUIPMENT CRUD
+# ============================================================
 
 @login_required
 def equipment_list(request):
@@ -259,17 +276,16 @@ def equipment_detail(request, id):
 
 
 @admin_required
-  
 def add_equipment(request):
     if request.method == 'POST':
-        form = EquipmentForm(request.POST)
+        form = EquipmentForm(request.POST, request.FILES)
         if form.is_valid():
             form.save()
-            return redirect('equipment_list')  # or your dashboard
+            return redirect('equipment_list')
     else:
         form = EquipmentForm()
-
     return render(request, 'equipment/add_equipment.html', {'form': form})
+
 
 @admin_required
 def equipment_edit(request, id):
@@ -278,76 +294,88 @@ def equipment_edit(request, id):
         form = EquipmentForm(request.POST, request.FILES, instance=equipment)
         if form.is_valid():
             form.save()
-            messages.success(request, "Equipment updated successfully!")
+            messages.success(request, "Equipment updated.")
             return redirect('equipment_list')
     else:
         form = EquipmentForm(instance=equipment)
     return render(request, 'equipment/equipment_form.html', {'form': form})
+
 
 @admin_required
 def equipment_delete(request, id):
     equipment = get_object_or_404(Equipment, id=id)
     if request.method == 'POST':
         equipment.delete()
-        messages.success(request, "Equipment deleted successfully!")
+        messages.success(request, "Equipment deleted.")
         return redirect('equipment_list')
     return render(request, 'equipment/equipment_confirm_delete.html', {'equipment': equipment})
 
-# =======================
-# Borrow / Return System
-# =======================
-@login_required
-@viewer_allowed
-def request_equipment(request):
-    if request.method == "POST":
-        form = EquipmentRequestForm(request.POST)
-        if form.is_valid():
-            req = form.save(commit=False)
-            req.user = request.user
-            req.save()
-            messages.success(request, "Request submitted!")
-            return redirect('viewer_dashboard')
-    else:
-        form = EquipmentRequestForm()
-    return render(request, 'equipment/request_equipment.html', {'form': form})
+
+# ============================================================
+# RETURN EQUIPMENT
+# ============================================================
 
 @login_required
-def borrow_equipment(request, id):
-    equipment = get_object_or_404(Equipment, id=id)
-
-    if equipment.quantity <= 0:
-        messages.error(request, "Equipment not available for borrowing.")
-        return redirect('equipment_list')
-
-    equipment.quantity -= 1
-    equipment.save()
-
-    UsageRecord.objects.create(
-        user=request.user,
-        equipment=equipment,
-        borrowed_on=timezone.now(),
-        purpose="General use",
-        quantity_used=1
-    )
-
-    messages.success(request, f"You have borrowed {equipment.name}.")
-    return redirect('equipment_list')
-
-
-@login_required
+@staff_required
 def return_equipment(request, id):
-    equipment = get_object_or_404(Equipment, id=id)
-    record = UsageRecord.objects.filter(user=request.user, equipment=equipment, returned_on__isnull=True).first()
+    record = get_object_or_404(UsageRecord, id=id)
+    equipment = record.equipment
 
-    if not record:
-        messages.error(request, "No active borrow record found for this equipment.")
-        return redirect('equipment_list')
+    if request.method == "POST":
+        record.returned_on = timezone.now().date()
+        record.save()
 
-    record.returned_on = timezone.now()
-    record.save()
+        equipment.quantity += record.quantity_used
+        equipment.save()
 
-    equipment.quantity += 1
-    equipment.save()
+        messages.success(request, f"{equipment.name} returned.")
+        return redirect('staff_dashboard')
 
-    messages.success(request, f"You have returned {equipment.name}.")
-    return redirect('equipment_list')
+    return render(request, "equipment/return_equipment.html", {"record": record})
+
+
+# -----------------------------
+# ADMIN: VIEW ALL USERS
+# -----------------------------
+@admin_required
+def admin_users(request):
+    users = User.objects.all().order_by('role')
+    return render(request, 'equipment/admin_users.html', {'users': users})
+
+
+# -----------------------------
+# ADMIN: VIEW STAFF ONLY
+# -----------------------------
+@admin_required
+def admin_staff_list(request):
+    staff = User.objects.filter(role="Staff")
+    return render(request, 'equipment/admin_staff_list.html', {'staff': staff})
+
+
+# -----------------------------
+# ADMIN: APPROVE STAFF USER
+# -----------------------------
+@admin_required
+def approve_staff(request, id):
+    staff_user = get_object_or_404(User, id=id)
+
+    if staff_user.role != "Staff":
+        messages.error(request, "User is not a staff member.")
+        return redirect("admin_staff_list")
+
+    staff_user.is_approved = True
+    staff_user.save()
+
+    messages.success(request, f"{staff_user.username} approved as staff!")
+    return redirect("admin_staff_list")
+
+
+# -----------------------------
+# ADMIN: VIEW BORROWERS
+# -----------------------------
+@admin_required
+def admin_borrowers(request):
+    borrowers = UsageRecord.objects.filter(returned_on__isnull=True)
+    return render(request, "equipment/admin_borrowers.html", {
+        "borrowers": borrowers
+    })

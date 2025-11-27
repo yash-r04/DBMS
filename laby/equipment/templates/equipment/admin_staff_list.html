@@ -1,0 +1,36 @@
+{% extends 'equipment/base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h3>Staff Users</h3>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Status</th>
+                <th>Approve</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in staff %}
+            <tr>
+                <td>{{ s.username }}</td>
+                <td>
+                    {% if s.is_approved %}
+                    ✔️ Approved
+                    {% else %}
+                    ❌ Pending
+                    {% endif %}
+                </td>
+                <td>
+                    {% if not s.is_approved %}
+                    <a href="{% url 'approve_staff' s.id %}" class="btn btn-success btn-sm">Approve</a>
+                    {% else %}
+                    <span class="text-muted">Already Approved</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

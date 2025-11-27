@@ -4,20 +4,46 @@
 <div class="container mt-4">
   <h2 class="text-center mb-4">Viewer Dashboard</h2>
 
-  <!-- Equipment List -->
   <div class="row">
     {% for eq in equipments %}
     <div class="col-md-4 mb-4">
-      <div class="card shadow-sm">
-        {% if eq.image %}
-        <img src="{{ eq.image.url }}" class="card-img-top" alt="{{ eq.name }}">
-        {% endif %}
+
+      <!-- RED CARD WHEN QUANTITY IS ZERO -->
+      <div class="card shadow-sm {% if eq.quantity == 0 %}border-danger bg-danger bg-opacity-25{% endif %}">
+
         <div class="card-body">
           <h5 class="card-title">{{ eq.name }}</h5>
-          <p class="card-text">{{ eq.description|truncatewords:20 }}</p>
-          <p>Available: {{ eq.quantity }}</p>
-          <!-- Request Button -->
-          <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#requestModal{{ eq.id }}">
+
+          {% if eq.image %}
+        <img src="{{ eq.image.url }}" class="card-img-top" alt="{{ eq.name }}">
+        {% endif %}
+
+          <!-- Show all details -->
+          <p><strong>Category:</strong> {{ eq.category }}</p>
+          <p><strong>Location:</strong> {{ eq.location }}</p>
+          <p><strong>Condition:</strong> {{ eq.condition }}</p>
+          
+          <p>{{ eq.description}}</p>
+          {% if eq.datasheet %}
+              <p><a href="{{ eq.datasheet }}" target="_blank" class="btn btn-sm btn-outline-info">
+                  View Datasheet
+              </a></p>
+              {% else %}
+              <p>No datasheet available</p>
+              {% endif %}
+
+          <!-- Color-coded quantity -->
+          {% if eq.quantity > 0 %}
+            <p class="text-success"><strong>Available: {{ eq.quantity }}</strong></p>
+          {% else %}
+            <p class="text-danger"><strong>Out of Stock</strong></p>
+          {% endif %}
+
+          <!-- Request Button (Disabled if qty=0) -->
+          <button class="btn btn-primary"
+                  data-bs-toggle="modal"
+                  data-bs-target="#requestModal{{ eq.id }}"
+                  {% if eq.quantity == 0 %} disabled {% endif %}>
             Request
           </button>
         </div>
@@ -34,21 +60,33 @@
               <h5 class="modal-title">Request {{ eq.name }}</h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
+
             <div class="modal-body">
               <input type="hidden" name="equipment" value="{{ eq.id }}">
+
               <div class="mb-3">
                 <label for="quantity{{ eq.id }}" class="form-label">Quantity</label>
-                <input type="number" name="quantity" id="quantity{{ eq.id }}" class="form-control" min="1" max="{{ eq.quantity }}" required>
+                <input type="number"
+                       name="quantity"
+                       id="quantity{{ eq.id }}"
+                       class="form-control"
+                       min="1" max="{{ eq.quantity }}"
+                       required>
               </div>
+
+              
+
               <div class="mb-3">
                 <label for="purpose{{ eq.id }}" class="form-label">Purpose</label>
                 <textarea name="purpose" id="purpose{{ eq.id }}" class="form-control"></textarea>
               </div>
             </div>
+
             <div class="modal-footer">
               <button type="submit" class="btn btn-success">Submit Request</button>
               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
             </div>
+
           </form>
         </div>
       </div>

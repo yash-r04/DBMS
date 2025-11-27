@@ -8,6 +8,7 @@ class User(AbstractUser):
         ('Viewer', 'Viewer'),
     ]
     role = models.CharField(max_length=10, choices=ROLE_CHOICES)
+    is_approved = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.username} ({self.role})"
@@ -31,7 +32,7 @@ class Equipment(models.Model):
     condition = models.CharField(max_length=50, default='Good')
     added_on = models.DateField(auto_now_add=True)
     description = models.TextField(blank=True, help_text="Short description or usage of the equipment")
-    datasheet = models.FileField(upload_to='datasheets/', blank=True, null=True)
+    datasheet = models.URLField(max_length=300, blank=True, null=True)
     image = models.ImageField(upload_to='equipment_images/', blank=True, null=True)
     
     def __str__(self):
@@ -41,16 +42,21 @@ class UsageRecord(models.Model):
     equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE, related_name='usage_records')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='usage_records')
     borrowed_on = models.DateField()
+    due_date = models.DateField(null=True, blank=True)
     returned_on = models.DateField(null=True, blank=True)
     purpose = models.TextField()
     quantity_used = models.PositiveIntegerField()
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.equipment.name}"
+
 
 class Alert(models.Model):
     equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE)
     message = models.TextField()
     type = models.CharField(max_length=20)
     created_at = models.DateTimeField(auto_now_add=True)
-    is_active = models.BooleanField(default=True)  # <- Add this
+    is_active = models.BooleanField(default=True)
 
     
 
@@ -61,7 +67,7 @@ class EquipmentRequest(models.Model):
         ('rejected', 'Rejected')
     ]
     
-    user = models.ForeignKey(User, on_delete=models.CASCADE)  # the viewer requesting
+    user = models.ForeignKey(User, on_delete=models.CASCADE) 
     equipment = models.ForeignKey('Equipment', on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField()
     purpose = models.TextField(blank=True)

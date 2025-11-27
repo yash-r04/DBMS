@@ -6,7 +6,6 @@
 
   <h2 class="mb-4 text-center">Admin Dashboard</h2>
 
-  <!-- ===== Stats Cards ===== -->
   <div class="row text-center mb-4">
     <div class="col-md-3">
       <div class="card shadow-sm p-3">
@@ -34,15 +33,16 @@
     </div>
   </div>
 
-  <!-- ===== Action Buttons ===== -->
   <div class="mb-4 text-center">
     <a href="{% url 'add_equipment' %}" class="btn btn-success mx-1">Add Equipment</a>
     <a href="{% url 'equipment_list' %}" class="btn btn-primary mx-1">View All Equipments</a>
     <a href="{% url 'supplier_list' %}" class="btn btn-info mx-1">View Suppliers</a>
     <a href="{% url 'add_supplier' %}" class="btn btn-warning mx-1">Add Supplier</a>
+    <a href="{% url 'admin_users' %}" class="btn btn-secondary mx-1">All Users</a>
+    <a href="{% url 'admin_staff_list' %}" class="btn btn-dark mx-1">Staff Users</a>
+    <a href="{% url 'admin_borrowers' %}" class="btn btn-danger mx-1">Borrowers</a>
   </div>
 
-  <!-- ===== Charts ===== -->
   <div class="row mb-4">
     <div class="col-md-6">
       <div class="card shadow-sm p-4">
@@ -58,7 +58,6 @@
     </div>
   </div>
 
-  <!-- ===== Equipment Table ===== -->
   <div class="card shadow-sm p-4">
     <h4 class="mb-3">All Equipments</h4>
     <table class="table table-hover">
@@ -89,7 +88,6 @@
 
 </div>
 
-<!-- ===== Chart.js Scripts ===== -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
   // Category Distribution (Bar Chart)
@@ -115,7 +113,6 @@
     }
   });
 
-  // Borrowed vs Available (Pie Chart)
   const borrowedCount = {{ borrowed_count }};
   const totalEquipment = {{ equipment_count }};
   const availableCount = totalEquipment - borrowedCount;
