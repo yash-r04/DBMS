@@ -4,42 +4,71 @@
 <div class="container mt-4">
   <h2 class="text-center mb-4">Viewer Dashboard</h2>
 
+  <!-- Search & Filter Form -->
+  <div class="row mb-3">
+    <div class="col-md-12">
+      <form method="get" class="row g-2">
+        <div class="col-md-3">
+          <input type="text" name="name" class="form-control" placeholder="Search by name" value="{{ search_name }}">
+        </div>
+        <div class="col-md-3">
+          <select name="category" class="form-control">
+            <option value="">All Categories</option>
+            {% for cat in categories %}
+              <option value="{{ cat }}" {% if cat == category_filter %} selected {% endif %}>{{ cat }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <select name="location" class="form-control">
+            <option value="">All Locations</option>
+            {% for loc in locations %}
+              <option value="{{ loc }}" {% if loc == location_filter %} selected {% endif %}>{{ loc }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3 d-flex">
+          <button type="submit" class="btn btn-primary me-2">Filter</button>
+          <a href="{% url 'viewer_dashboard' %}" class="btn btn-secondary">Reset</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div class="row">
     {% for eq in equipments %}
     <div class="col-md-4 mb-4">
-
       <!-- RED CARD WHEN QUANTITY IS ZERO -->
       <div class="card shadow-sm {% if eq.quantity == 0 %}border-danger bg-danger bg-opacity-25{% endif %}">
-
         <div class="card-body">
           <h5 class="card-title">{{ eq.name }}</h5>
 
           {% if eq.image %}
-        <img src="{{ eq.image.url }}" class="card-img-top" alt="{{ eq.name }}">
-        {% endif %}
+            <img src="{{ eq.image.url }}" class="card-img-top mb-2" alt="{{ eq.name }}">
+          {% endif %}
 
-          <!-- Show all details -->
           <p><strong>Category:</strong> {{ eq.category }}</p>
           <p><strong>Location:</strong> {{ eq.location }}</p>
           <p><strong>Condition:</strong> {{ eq.condition }}</p>
-          
-          <p>{{ eq.description}}</p>
-          {% if eq.datasheet %}
-              <p><a href="{{ eq.datasheet }}" target="_blank" class="btn btn-sm btn-outline-info">
-                  View Datasheet
-              </a></p>
-              {% else %}
-              <p>No datasheet available</p>
-              {% endif %}
+          <p>{{ eq.description }}</p>
 
-          <!-- Color-coded quantity -->
+          {% if eq.datasheet %}
+            <p>
+              <a href="{{ eq.datasheet }}" target="_blank" class="btn btn-sm btn-outline-info">
+                View Datasheet
+              </a>
+            </p>
+          {% else %}
+            <p>No datasheet available</p>
+          {% endif %}
+
           {% if eq.quantity > 0 %}
             <p class="text-success"><strong>Available: {{ eq.quantity }}</strong></p>
           {% else %}
             <p class="text-danger"><strong>Out of Stock</strong></p>
           {% endif %}
 
-          <!-- Request Button (Disabled if qty=0) -->
+          <!-- Request Button -->
           <button class="btn btn-primary"
                   data-bs-toggle="modal"
                   data-bs-target="#requestModal{{ eq.id }}"
@@ -50,7 +79,7 @@
       </div>
     </div>
 
-    <!-- Modal -->
+    <!-- Request Modal -->
     <div class="modal fade" id="requestModal{{ eq.id }}" tabindex="-1">
       <div class="modal-dialog">
         <div class="modal-content">
@@ -74,8 +103,6 @@
                        required>
               </div>
 
-              
-
               <div class="mb-3">
                 <label for="purpose{{ eq.id }}" class="form-label">Purpose</label>
                 <textarea name="purpose" id="purpose{{ eq.id }}" class="form-control"></textarea>
@@ -92,6 +119,8 @@
       </div>
     </div>
 
+    {% empty %}
+      <p class="text-center text-muted">No equipments found.</p>
     {% endfor %}
   </div>
 </div>

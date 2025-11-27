@@ -16,6 +16,7 @@ class User(AbstractUser):
 class Supplier(models.Model):
     name = models.CharField(max_length=100)
     contact_no = models.CharField(max_length=15)
+    equipments_available = models.CharField(max_length=50, default="N/A")
     email = models.EmailField()
     street = models.CharField(max_length=100)
     city = models.CharField(max_length=50)
@@ -39,16 +40,27 @@ class Equipment(models.Model):
         return self.name
 
 class UsageRecord(models.Model):
-    equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE, related_name='usage_records')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='usage_records')
-    borrowed_on = models.DateField()
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE)
+    quantity_used = models.PositiveIntegerField(default=1)
+    borrowed_on = models.DateField(auto_now_add=True)
     due_date = models.DateField(null=True, blank=True)
     returned_on = models.DateField(null=True, blank=True)
-    purpose = models.TextField()
-    quantity_used = models.PositiveIntegerField()
-    
+
+    is_damaged = models.BooleanField(default=False)
+    damage_report = models.TextField(blank=True, null=True)
+
+    approved_by = models.ForeignKey(User, related_name="approved_records",
+                                    on_delete=models.SET_NULL, null=True, blank=True)
+    collected_by = models.ForeignKey(User, related_name="collected_records",
+                                     on_delete=models.SET_NULL, null=True, blank=True)
+
+    penalty_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    damage_processed = models.BooleanField(default=False)
+
     def __str__(self):
         return f"{self.user.username} - {self.equipment.name}"
+
 
 
 class Alert(models.Model):

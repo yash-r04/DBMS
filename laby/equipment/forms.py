@@ -21,24 +21,30 @@ class RegisterForm(UserCreationForm):
         model = User
         fields = ['username', 'email', 'role', 'password1', 'password2']
 
-
-'''class EquipmentForm(forms.ModelForm):
-    class Meta:
-        model = Equipment
-        fields = ['name', 'category', 'quantity', 'location', 'condition', 'description', 'datasheet', 'image']
-'''
 class EquipmentForm(forms.ModelForm):
     class Meta:
         model = Equipment
-        fields = ['name', 'category', 'quantity', 'location', 'condition']  # add other fields if needed
+        fields = [
+            'name',
+            'category',
+            'quantity',
+            'location',
+            'condition',
+            'description',
+            'datasheet',
+            'image'
+        ]
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Equipment Name'}),
             'category': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Category'}),
             'quantity': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Quantity'}),
             'location': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Location'}),
             'condition': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Condition'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Short description', 'rows': 4}),
+            'datasheet': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'Datasheet URL'}),
         }
+
 class SupplierForm(forms.ModelForm):
     class Meta:
         model = Supplier
-        fields = ['name', 'contact_no', 'email', 'street', 'city', 'pincode']
+        fields = ['name', 'equipments_available','contact_no', 'email', 'street', 'city', 'pincode']

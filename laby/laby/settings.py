@@ -43,7 +43,8 @@ INSTALLED_APPS = [
     'django_filters',
     
     #i need to add my aapps here
-    'equipment',
+    #'equipment',
+    'equipment.apps.EquipmentConfig'
     ]
 
 MIDDLEWARE = [

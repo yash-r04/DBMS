@@ -15,15 +15,12 @@ from .forms import (
 from .decorators import admin_required, staff_required, viewer_allowed
 
 
-# ============================================================
-# HOME + AUTH
-# ============================================================
-
+#home 
 def home(request):
     equipments = Equipment.objects.all()[:5]
     return render(request, 'equipment/home.html', {'equipments': equipments})
 
-
+#registering new users/saff/admin
 def register_view(request):
     if request.method == 'POST':
         form = RegisterForm(request.POST)
@@ -44,7 +41,7 @@ def register_view(request):
 
     return render(request, 'equipment/register.html', {'form': form})
 
-
+#login page
 def login_view(request):
     if request.method == 'POST':
         username = request.POST.get('username')
@@ -64,7 +61,7 @@ def login_view(request):
 
     return render(request, 'equipment/login.html')
 
-
+#renders dash boad after login/register
 @login_required
 def dashboard(request):
     if request.user.role == 'Admin':
@@ -73,11 +70,7 @@ def dashboard(request):
         return redirect('staff_dashboard')
     return redirect('viewer_dashboard')
 
-
-# ============================================================
-# VIEWER: REQUEST EQUIPMENT (ONE FINAL VERSION)
-# ============================================================
-
+#this is used by user/viwer to request equipmnet
 @login_required
 @viewer_allowed
 def request_equipment(request):
@@ -96,18 +89,20 @@ def request_equipment(request):
     return render(request, 'equipment/request_equipment.html', {'form': form})
 
 
-# ============================================================
-# ADMIN DASHBOARD
-# ============================================================
-
+#admin dashboard
 @admin_required
 def admin_dashboard(request):
     equipments = Equipment.objects.all()
     suppliers = Supplier.objects.all()
-    alerts = Alert.objects.all()
+
+    # Existing alerts from Alert table
+    db_alerts = Alert.objects.filter(is_active=True)  # Only DB alerts
+
+    # Generate low-stock alerts dynamically
+    LOW_STOCK_THRESHOLD = 2
+    low_stock_equipments = [eq for eq in equipments if eq.quantity < LOW_STOCK_THRESHOLD]
 
     borrowed_count = UsageRecord.objects.filter(returned_on__isnull=True).count()
-
     category_data = Equipment.objects.values('category').annotate(count=Count('id'))
 
     context = {
@@ -115,18 +110,47 @@ def admin_dashboard(request):
         'supplier_count': suppliers.count(),
         'equipment_count': equipments.count(),
         'borrowed_count': borrowed_count,
-        'alert_count': alerts.count(),
+        'alert_count': db_alerts.count(),
+        'db_alerts': db_alerts,            # Only DB alerts for resolving
+        'low_stock_equipments': low_stock_equipments,  # Low stock alerts
         'categories': [c['category'] for c in category_data],
         'counts': [c['count'] for c in category_data],
     }
     return render(request, 'equipment/admin_dashboard.html', context)
 
 
-# ============================================================
-# SUPPLIERS (Admin only)
-# ============================================================
-
+# Resolve active alerts (discard or add back)
+@login_required
 @admin_required
+def resolve_alert(request, alert_id, action):
+    """
+    Handle active alerts from DB:
+    - 'discard': remove the equipment and mark alert inactive
+    - 'add_back': restore equipment quantity and mark alert inactive
+    """
+    alert = get_object_or_404(Alert, id=alert_id, is_active=True)
+    equipment = alert.equipment
+
+    if action == "discard":
+        equipment.delete()
+        alert.is_active = False
+        alert.save()
+        messages.success(request, f"{equipment.name} discarded and alert resolved.")
+    elif action == "add_back":
+        equipment.quantity += 1
+        equipment.save()
+        alert.is_active = False
+        alert.save()
+        messages.success(request, f"{equipment.name} added back to inventory and alert resolved.")
+    else:
+        messages.error(request, "Invalid action.")
+
+    return redirect("admin_dashboard")
+
+
+
+#admin only can add suppliers
+@admin_required 
 def supplier_list(request):
     suppliers = Supplier.objects.all()
     return render(request, 'equipment/supplier_list.html', {'suppliers': suppliers})
@@ -145,19 +169,14 @@ def add_supplier(request):
     return render(request, 'equipment/add_supplier.html', {'form': form})
 
 
-# ============================================================
-# STAFF DASHBOARD (handles approval + borrowing display)
-# ============================================================
-
+#staff dashboard - approve requests, accept back rquipments and sends alret to admin in case of damage or wishlist
 @login_required
 @staff_required
 def staff_dashboard(request):
-
     today = timezone.now().date()
 
     borrowed_records = UsageRecord.objects.filter(returned_on__isnull=True)
     borrowed_count = borrowed_records.count()
-
     equipment_count = Equipment.objects.count()
     alert_count = Alert.objects.filter(is_active=True).count()
 
@@ -165,41 +184,28 @@ def staff_dashboard(request):
         returned_on__isnull=True,
         due_date__lt=today
     ).annotate(
-        days_overdue=timezone.now().date() - F('due_date')
+        days_overdue=F('due_date') - today
     )
 
-    # =====================================================
-    # HANDLE APPROVE / REJECT
-    # =====================================================
-    if request.method == "POST":
+    # Approving or rejecting equipment requests
+    if request.method == "POST" and "request_id" in request.POST:
         action = request.POST.get("action")
         req_id = request.POST.get("request_id")
-
-        try:
-            req = EquipmentRequest.objects.get(id=req_id)
-        except EquipmentRequest.DoesNotExist:
-            messages.error(request, "Request not found.")
-            return redirect("staff_dashboard")
-
+        req = get_object_or_404(EquipmentRequest, id=req_id)
         equipment = req.equipment
 
-        # ---------- APPROVE ----------
         if action == "approve":
             due_date = request.POST.get("due_date")
-
             if not due_date:
                 messages.error(request, "Due date required.")
                 return redirect("staff_dashboard")
-
             if req.quantity > equipment.quantity:
                 messages.error(request, "Not enough stock available.")
                 return redirect("staff_dashboard")
 
-            # Update quantity
             equipment.quantity -= req.quantity
             equipment.save()
 
-            # Create usage record
             UsageRecord.objects.create(
                 user=req.user,
                 equipment=equipment,
@@ -207,16 +213,14 @@ def staff_dashboard(request):
                 borrowed_on=today,
                 due_date=due_date,
                 purpose=req.purpose or "Requested through dashboard",
-                returned_on=None
+                approved_by=request.user
             )
 
             req.status = "approved"
             req.processed_at = timezone.now()
             req.save()
-
             messages.success(request, f"Approved request for {equipment.name}")
 
-        # ---------- REJECT ----------
         elif action == "reject":
             req.status = "rejected"
             req.processed_at = timezone.now()
@@ -225,9 +229,6 @@ def staff_dashboard(request):
 
         return redirect("staff_dashboard")
 
-    # =====================================================
-    # Pending (only pending)
-    # =====================================================
     requests_list = EquipmentRequest.objects.filter(status='pending')
 
     context = {
@@ -242,28 +243,46 @@ def staff_dashboard(request):
     return render(request, "equipment/staff_dashboard.html", context)
 
 
-# ============================================================
-# VIEWER DASHBOARD
-# ============================================================
 
+#viewer dashboard with search and filters
 @login_required
 @viewer_allowed
 def viewer_dashboard(request):
     equipments = Equipment.objects.all()
+    categories = Equipment.objects.values_list('category', flat=True).distinct()
+    locations = Equipment.objects.values_list('location', flat=True).distinct()
+
+    # Get filters from GET request
+    search_name = request.GET.get('name', '')
+    category_filter = request.GET.get('category', '')
+    location_filter = request.GET.get('location', '')
+
+    if search_name:
+        equipments = equipments.filter(name__icontains=search_name)
+    if category_filter:
+        equipments = equipments.filter(category=category_filter)
+    if location_filter:
+        equipments = equipments.filter(location=location_filter)
+
     form = EquipmentRequestForm()
-    return render(request, 'equipment/viewer_dashboard.html', {
+    context = {
         'equipments': equipments,
-        'form': form
-    })
+        'categories': categories,
+        'locations': locations,
+        'search_name': search_name,
+        'category_filter': category_filter,
+        'location_filter': location_filter,
+        'form': form,
+    }
+    return render(request, 'equipment/viewer_dashboard.html', context)
+
 
 def no_permission(request):
     return render(request, 'equipment/no_permission.html')
 
-# ============================================================
-# EQUIPMENT CRUD
-# ============================================================
-
+#adding equipment by admin
 @login_required
+@admin_required
 def equipment_list(request):
     equipments = Equipment.objects.all()
     return render(request, 'equipment/equipment_list.html', {'equipments': equipments})
@@ -285,6 +304,25 @@ def add_equipment(request):
     else:
         form = EquipmentForm()
     return render(request, 'equipment/add_equipment.html', {'form': form})
+
+@admin_required
+def admin_borrowers(request):
+    # Show all records (both returned and unreturned)
+    borrowers = UsageRecord.objects.all().order_by('-borrowed_on')
+
+    # Optional filters
+    user_filter = request.GET.get('user')
+    equipment_filter = request.GET.get('equipment')
+
+    if user_filter:
+        borrowers = borrowers.filter(user__username__icontains=user_filter)
+    if equipment_filter:
+        borrowers = borrowers.filter(equipment__name__icontains=equipment_filter)
+
+    return render(request, "equipment/admin_borrowers.html", {
+        "borrowers": borrowers
+    })
+
 
 
 @admin_required
@@ -311,10 +349,7 @@ def equipment_delete(request, id):
     return render(request, 'equipment/equipment_confirm_delete.html', {'equipment': equipment})
 
 
-# ============================================================
-# RETURN EQUIPMENT
-# ============================================================
-
+#returning equipment
 @login_required
 @staff_required
 def return_equipment(request, id):
@@ -322,39 +357,64 @@ def return_equipment(request, id):
     equipment = record.equipment
 
     if request.method == "POST":
-        record.returned_on = timezone.now().date()
+        if not record.collected_by:
+            # Mark as collected
+            record.collected_by = request.user
+            messages.success(request, f"{equipment.name} collected successfully!")
+        else:
+            # Handle return
+            record.returned_on = timezone.now().date()
+            record.is_damaged = "is_damaged" in request.POST
+            record.damage_report = request.POST.get("damage_report", "")
+            record.penalty_amount = request.POST.get("penalty_amount", 0)
+
+            # Update inventory
+            if record.is_damaged:
+                equipment.quantity -= record.quantity_used
+
+                # CREATE ALERT FOR DAMAGE
+                Alert.objects.create(
+                    equipment=equipment,
+                    alert_type="Damaged",
+                    description=record.damage_report or "Damage reported during return",
+                    is_active=True
+                )
+            else:
+                equipment.quantity += record.quantity_used
+
+            # CREATE ALERT IF STOCK LOW
+            if equipment.quantity <= 2:
+                Alert.objects.create(
+                    equipment=equipment,
+                    alert_type="Low Stock",
+                    description=f"Only {equipment.quantity} units left",
+                    is_active=True
+                )
+
+            messages.success(request, f"{equipment.name} returned successfully!")
+
         record.save()
-
-        equipment.quantity += record.quantity_used
         equipment.save()
-
-        messages.success(request, f"{equipment.name} returned.")
         return redirect('staff_dashboard')
 
     return render(request, "equipment/return_equipment.html", {"record": record})
 
 
-# -----------------------------
-# ADMIN: VIEW ALL USERS
-# -----------------------------
+
+#view all users to admin
 @admin_required
 def admin_users(request):
     users = User.objects.all().order_by('role')
     return render(request, 'equipment/admin_users.html', {'users': users})
 
-
-# -----------------------------
-# ADMIN: VIEW STAFF ONLY
-# -----------------------------
+#admin to view all users
 @admin_required
 def admin_staff_list(request):
     staff = User.objects.filter(role="Staff")
     return render(request, 'equipment/admin_staff_list.html', {'staff': staff})
 
-
-# -----------------------------
-# ADMIN: APPROVE STAFF USER
-# -----------------------------
+#admin has to aprove staff
+#todo show only staff there
 @admin_required
 def approve_staff(request, id):
     staff_user = get_object_or_404(User, id=id)
@@ -368,14 +428,3 @@ def approve_staff(request, id):
 
     messages.success(request, f"{staff_user.username} approved as staff!")
     return redirect("admin_staff_list")
-
-
-# -----------------------------
-# ADMIN: VIEW BORROWERS
-# -----------------------------
-@admin_required
-def admin_borrowers(request):
-    borrowers = UsageRecord.objects.filter(returned_on__isnull=True)
-    return render(request, "equipment/admin_borrowers.html", {
-        "borrowers": borrowers
-    })

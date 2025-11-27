@@ -1,171 +1,181 @@
 {% extends 'equipment/base.html' %}
+{% load static %}
 
 {% block content %}
 <div class="container mt-4">
-  <h2 class="text-center mb-4">Staff Dashboard</h2>
+    <h2 class="text-center mb-4">Staff Dashboard</h2>
 
-  <!-- Quick Stats -->
-  <div class="row text-center mb-4">
-    <div class="col-md-4">
-      <div class="card shadow-sm p-3">
-        <h5>Borrowed Equipments</h5>
-        <p class="display-6">{{ borrowed_count }}</p>
-      </div>
+    <!-- Quick Stats -->
+    <div class="row text-center mb-4">
+        <div class="col-md-4">
+            <div class="card shadow-sm p-3">
+                <h5>Borrowed Equipments</h5>
+                <p class="display-6">{{ borrowed_count }}</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm p-3">
+                <h5>Total Equipments</h5>
+                <p class="display-6">{{ equipment_count }}</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm p-3">
+                <h5>Active Alerts</h5>
+                <p class="display-6 text-danger">{{ alert_count }}</p>
+            </div>
+        </div>
     </div>
-    <div class="col-md-4">
-      <div class="card shadow-sm p-3">
-        <h5>Total Equipments</h5>
-        <p class="display-6">{{ equipment_count }}</p>
-      </div>
+
+    <!-- ===================== BORROWED EQUIPMENT ===================== -->
+    <div class="card shadow-sm p-4 mb-4">
+        <h4 class="mb-3">Borrowed Equipment</h4>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>User</th>
+                        <th>Equipment</th>
+                        <th>Quantity</th>
+                        <th>Borrowed On</th>
+                        <th>Due Date</th>
+                        <th>Status</th>
+                        <th>Approved By</th>
+                        <th>Collect / Return</th>
+                        <th>Purpose</th>
+                        <th>Penalty (₹)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in borrowed_records %}
+                    <tr
+                        {% if record.due_date and record.due_date < today %}
+                            class="table-danger"
+                        {% elif record.due_date and record.due_date|date:"U" <= today|date:"U" %}
+                            class="table-warning"
+                        {% endif %}
+                    >
+                        <td>{{ record.user.username }}</td>
+                        <td>{{ record.equipment.name }}</td>
+                        <td>{{ record.quantity_used }}</td>
+                        <td>{{ record.borrowed_on }}</td>
+                        <td>{{ record.due_date|default:"-" }}</td>
+                        <td>
+                            {% if record.returned_on %}
+                                <span class="badge bg-success">Returned</span>
+                            {% elif record.due_date < today %}
+                                <span class="badge bg-danger">Overdue</span>
+                            {% else %}
+                                <span class="badge bg-primary">Borrowed</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ record.approved_by.username|default:"Pending" }}</td>
+
+                        <!-- Collect / Return -->
+                        <td>
+                            <form method="post" action="{% url 'return_equipment' record.id %}">
+                                {% csrf_token %}
+                                {% if not record.collected_by %}
+                                    <button class="btn btn-sm btn-primary mb-1">Collect</button>
+                                {% elif not record.returned_on %}
+                                    <textarea name="damage_report" class="form-control mb-1" placeholder="Damage report (optional)"></textarea>
+                                    <div class="form-check mb-1">
+                                        <input class="form-check-input" type="checkbox" name="is_damaged" value="True" id="damage{{ record.id }}">
+                                        <label class="form-check-label" for="damage{{ record.id }}">Damaged</label>
+                                    </div>
+                                    <input type="number" step="0.01" name="penalty_amount" class="form-control mb-1" placeholder="Penalty amount (₹)">
+                                    <button class="btn btn-warning btn-sm">Return</button>
+                                {% else %}
+                                    {{ record.returned_on }}
+                                {% endif %}
+                            </form>
+                        </td>
+
+                        <td>{{ record.purpose }}</td>
+                        <td>{{ record.penalty_amount }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="10" class="text-center">No borrowed equipment</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
-    <div class="col-md-4">
-      <div class="card shadow-sm p-3">
-        <h5>Active Alerts</h5>
-        <p class="display-6 text-danger">{{ alert_count }}</p>
-      </div>
+
+    <!-- ===================== OVERDUE EQUIPMENT ===================== -->
+    <div class="card shadow-sm p-4 mb-4">
+        <h4 class="mb-3 text-danger">Overdue Equipment</h4>
+        <div class="table-responsive">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Equipment</th>
+                        <th>Borrowed On</th>
+                        <th>Due Date</th>
+                        <th>Days Overdue</th>
+                        <th>Approved By</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in overdue_records %}
+                    <tr class="table-danger">
+                        <td>{{ record.user.username }}</td>
+                        <td>{{ record.equipment.name }}</td>
+                        <td>{{ record.borrowed_on }}</td>
+                        <td>{{ record.due_date }}</td>
+                        <td>{{ record.days_overdue }}</td>
+                        <td>{{ record.approved_by.username|default:"Pending" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center">No overdue equipment 🎉</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
-  </div>
 
-
-  <!-- Borrowed Equipment List -->
-  <div class="card shadow-sm p-4 mb-4">
-    <h4 class="mb-3">Borrowed Equipment</h4>
-
-    <table class="table table-bordered">
-      <thead>
-        <tr>
-          <th>User</th>
-          <th>Equipment</th>
-          <th>Borrowed On</th>
-          <th>Due Date</th>
-          <th>Status</th>
-          <th>Return</th>
-          <th>Purpose</th>
-          <th>Quantity</th>
-        </tr>
-      </thead>
-
-      <tbody>
-        {% for record in borrowed_records %}
-        <tr
-          {% if record.due_date and record.due_date < today %}
-            class="table-danger"
-          {% elif record.due_date and record.due_date|date:"U" <= today|date:"U" %}
-            class="table-warning"
-          {% endif %}
-        >
-          <td>{{ record.user.username }}</td>
-          <td>{{ record.equipment.name }}</td>
-          <td>{{ record.borrowed_on }}</td>
-          <td>{{ record.due_date }}</td>
-
-          <td>
-            {% if record.returned_on %}
-              <span class="badge bg-success">Returned</span>
-            {% elif record.due_date < today %}
-              <span class="badge bg-danger">Overdue</span>
-            {% else %}
-              <span class="badge bg-primary">Borrowed</span>
-            {% endif %}
-          </td>
-
-          <td>
-            {% if record.returned_on %}
-              {{ record.returned_on }}
-            {% else %}
-              <form action="{% url 'return_equipment' record.id %}" method="post">
-                {% csrf_token %}
-                <button class="btn btn-warning btn-sm">Return</button>
-              </form>
-            {% endif %}
-          </td>
-
-          <td>{{ record.purpose }}</td>
-          <td>{{ record.quantity_used }}</td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="8">No borrowed equipment</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-
-
-  <!-- Overdue Equipment -->
-  <div class="card shadow-sm p-4 mb-4">
-    <h4 class="mb-3 text-danger">Overdue Equipment</h4>
-
-    <table class="table table-bordered">
-      <thead>
-        <tr>
-          <th>User</th>
-          <th>Equipment</th>
-          <th>Borrowed On</th>
-          <th>Due Date</th>
-          <th>Days Overdue</th>
-        </tr>
-      </thead>
-
-      <tbody>
-        {% for record in overdue_records %}
-        <tr class="table-danger">
-          <td>{{ record.user.username }}</td>
-          <td>{{ record.equipment.name }}</td>
-          <td>{{ record.borrowed_on }}</td>
-          <td>{{ record.due_date }}</td>
-          <td>{{ record.days_overdue }}</td>
-        </tr>
-        {% empty %}
-          <tr><td colspan="5">No overdue equipment</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-
-
-  <!-- Pending Requests -->
-  <div class="card shadow-sm p-4">
-    <h4 class="mb-3">Pending Equipment Requests</h4>
-
-    <table class="table table-bordered">
-      <thead>
-        <tr>
-          <th>User</th>
-          <th>Equipment</th>
-          <th>Quantity</th>
-          <th>Purpose</th>
-          <th>Due Date</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-
-      <tbody>
-        {% for req in requests %}
-        <tr>
-          <td>{{ req.user.username }}</td>
-          <td>{{ req.equipment.name }}</td>
-          <td>{{ req.quantity }}</td>
-          <td>{{ req.purpose }}</td>
-
-          <td>
-            <form method="post">
-              {% csrf_token %}
-              <input type="date" name="due_date" class="form-control" required>
-          </td>
-
-          <td>
-              <input type="hidden" name="request_id" value="{{ req.id }}">
-              <button name="action" value="approve" class="btn btn-success btn-sm mt-1">Approve</button>
-              <button name="action" value="reject" class="btn btn-danger btn-sm mt-1">Reject</button>
-            </form>
-          </td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="6">No pending requests</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+    <!-- ===================== PENDING REQUESTS ===================== -->
+    <div class="card shadow-sm p-4">
+        <h4 class="mb-3">Pending Equipment Requests</h4>
+        <div class="table-responsive">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Equipment</th>
+                        <th>Quantity</th>
+                        <th>Purpose</th>
+                        <th>Due Date</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for req in requests %}
+                    <tr>
+                        <td>{{ req.user.username }}</td>
+                        <td>{{ req.equipment.name }}</td>
+                        <td>{{ req.quantity }}</td>
+                        <td>{{ req.purpose }}</td>
+                        <td>
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="date" name="due_date" class="form-control" required>
+                        </td>
+                        <td>
+                                <input type="hidden" name="request_id" value="{{ req.id }}">
+                                <button name="action" value="approve" class="btn btn-success btn-sm mt-1">Approve</button>
+                                <button name="action" value="reject" class="btn btn-danger btn-sm mt-1">Reject</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center">No pending requests</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 
 </div>
 {% endblock %}

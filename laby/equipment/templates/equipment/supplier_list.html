@@ -13,6 +13,7 @@
         <thead>
             <tr>
                 <th>Name</th>
+                <th>Equipments</th>
                 <th>Contact</th>
                 <th>Email</th>
                 <th>Address</th>
@@ -22,6 +23,7 @@
         {% for sup in suppliers %}
             <tr>
                 <td>{{ sup.name }}</td>
+                <td>{{sup.equipments_available}}</td>
                 <td>{{ sup.contact_no }}</td>
                 <td>{{ sup.email }}</td>
                 <td>{{ sup.street }}, {{ sup.city }} - {{ sup.pincode }}</td>

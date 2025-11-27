@@ -37,6 +37,7 @@ urlpatterns = [
     path('admin-dashboard/staff/', views.admin_staff_list, name='admin_staff_list'),
     path('admin-dashboard/approve-staff/<int:id>/', views.approve_staff, name='approve_staff'),
     path('admin-dashboard/borrowers/', views.admin_borrowers, name='admin_borrowers'),
+    path('resolve-alert/<int:alert_id>/<str:action>/', views.resolve_alert, name='resolve_alert'),
 
 
 ]
